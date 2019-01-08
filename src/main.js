@@ -52,6 +52,67 @@ var params = new function () {
 
 var dashBoardProxy = new function () {
   var data = null;
+  var columnsInfo = null;
+
+  function getColumns() {
+    if (columnsInfo) return columnsInfo;
+
+    var vacationLimit = getParamInt('vacation-limit-days');
+    
+    columnsInfo = [
+      { name: 'id', type: 'int', readonly: true },
+      { name: 'firstName', readonly: true },
+      { name: 'lastName', readonly: true },
+      { name: 'email', readonly: true },
+      { name: 'username', readonly: true },
+      { name: 'memriseStrike', type: 'int' },
+      { name: 'audioStrike', type: 'int' },
+      { name: 'quizStrike', type: 'int' },
+      { name: 'strikeCount', type: 'int', formula: '=RC[-3]+RC[-2]+RC[-1]' },
+      { name: 'deductedStrikes', type: 'int' },
+      { name: 'deductedManually', type: 'int' },
+      { name: 'totalStrikeCount', type: 'int', formula: '=RC[-2]+RC[-1]' },
+      { name: 'vacationsTaken', type: 'int' },
+      { name: 'vacationsLeft', type: 'int', formula: '=' + vacationLimit + '-RC[-1]' },
+      { name: 'lastNotified' },
+      { name: 'lastStrikesModified' },
+    ];
+
+    return columnsInfo;
+  }
+
+  var columnSections = function () {
+    var result = [];
+    var currentSection = null;
+    var columns = getColumns();
+    for (var i = 0; i < columns.length; i++) {
+      var type = columns[i].formula ? 'formula' : 'value';
+      var readonly = columns[i].readonly == true;
+
+      if (currentSection && (currentSection.type == 'formula' || currentSection.type != type || currentSection.readonly != readonly)) {
+        result.push(currentSection);
+        currentSection = null;
+      }
+
+      if (!currentSection)
+        currentSection = {
+          names: [],
+          readonly: readonly,
+          from: i,
+          to: i,
+          type: type
+        };
+
+      currentSection.names.push(columnsInfo[i].name);
+      currentSection.to = i;
+      if (type == 'formula')
+        currentSection.formula = columnsInfo[i].formula;
+    }
+
+    result.push(currentSection);
+
+    return result.filter(function (s) { return !s.readonly; });
+  }();
 
   this.get = function () {
     return data || (data = getDashBoard());
@@ -65,23 +126,36 @@ var dashBoardProxy = new function () {
 
   function getDashBoard() {
     console.time('getDashBoard');
+    var columns = getColumns();
     var result = dashBoardSheet
       .getValues()
       .map(function (values, i) {
-        return {
-          rowIndex: i + 1,
-          firstName: values[1],
-          lastName: values[2],
-          email: values[3],
-          username: values[4],
-          memriseStrike: parseInt(values[5], 10) || 0,
-          audioStrike: parseInt(values[6], 10) || 0,
-          quizStrike: parseInt(values[7], 10) || 0,
-          deductedStrikes: parseInt(values[9], 10) || 0,
-          vacationsTaken: parseInt(values[11], 10) || 0,
-          lastNotified: values[13],
-          lastStrikesModified: values[14]
+        var item = {
+          rowIndex: i + 1
         };
+
+        for (var i = 0; i < columns.length; i++) {
+          var prop = columns[i];
+          if (prop.type == 'int')
+            item[prop.name] = parseInt(values[i], 10) || 0;
+          else
+            item[prop.name] = values[i];
+        }
+        return item;
+        // return {
+        //   rowIndex: i + 1,
+        //   firstName: values[1],
+        //   lastName: values[2],
+        //   email: values[3],
+        //   username: values[4],
+        //   memriseStrike: parseInt(values[5], 10) || 0,
+        //   audioStrike: parseInt(values[6], 10) || 0,
+        //   quizStrike: parseInt(values[7], 10) || 0,
+        //   deductedStrikes: parseInt(values[9], 10) || 0,
+        //   vacationsTaken: parseInt(values[11], 10) || 0,
+        //   lastNotified: values[13],
+        //   lastStrikesModified: values[14]
+        // };
       });
     console.timeEnd('getDashBoard');
     return result;
@@ -90,59 +164,86 @@ var dashBoardProxy = new function () {
   function saveDashBoard(dashboard) {
     console.time('saveDashBoard');
 
-    var vacationLimit = getParamInt('vacation-limit-days');
-    var rangeValues = [[], [], [], [], [], [], []];
+    var rangeValues = columnSections.map(function (i) { return []; });
     dashboard
       .forEach(function (r) {
-        rangeValues[0].push([
-          r.memriseStrike,
-          r.audioStrike,
-          r.quizStrike
-        ]);
 
-        rangeValues[1].push([
-          '=RC[-3]+RC[-2]+RC[-1]'
-        ]);
+        for (var i = 0; i < columnSections.length; i++) {
+          var values = columnSections[i].type == 'formula'
+            ? columnSections[i].names.map(function () { return columnSections[i].formula })
+            : columnSections[i].names.map(function (n) { return r[n]; })
 
-        rangeValues[2].push([
-          r.deductedStrikes
-        ]);
+          rangeValues[i].push(values);
+        }
 
-        rangeValues[3].push([
-          '=RC[-2]+RC[-1]'
-        ]);
+        // rangeValues[0].push([
+        //   r.memriseStrike,
+        //   r.audioStrike,
+        //   r.quizStrike
+        // ]);
 
-        rangeValues[4].push([
-          r.vacationsTaken
-        ]);
+        // rangeValues[1].push([
+        //   '=RC[-3]+RC[-2]+RC[-1]'
+        // ]);
 
-        rangeValues[5].push([
-          '=' + vacationLimit + '-RC[-1]'
-        ]);
+        // rangeValues[2].push([
+        //   r.deductedStrikes
+        // ]);
 
-        rangeValues[6].push([
-          r.lastNotified,
-          r.lastStrikesModified
-        ]);
+        // rangeValues[3].push([
+        //   '=RC[-2]+RC[-1]'
+        // ]);
+
+        // rangeValues[4].push([
+        //   r.vacationsTaken
+        // ]);
+
+        // rangeValues[5].push([
+        //   '=' + vacationLimit + '-RC[-1]'
+        // ]);
+
+        // rangeValues[6].push([
+        //   r.lastNotified,
+        //   r.lastStrikesModified
+        // ]);
       });
 
     var dashboardRange = dashBoardSheet.getDataRange();
     var dashboardRangeNumRows = dashboardRange.getNumRows();
-    dashboardRange.offset(0, 5, dashboardRangeNumRows, 3).setValues(rangeValues[0]);
-    dashboardRange.offset(0, 8, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[1]);
-    dashboardRange.offset(0, 9, dashboardRangeNumRows, 1).setValues(rangeValues[2]);
-    dashboardRange.offset(0, 10, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
-    dashboardRange.offset(0, 11, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
-    dashboardRange.offset(0, 12, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
-    dashboardRange.offset(0, 13, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
+
+    for (var i = 0; i < columnSections.length; i++) {
+      var section = columnSections[i];
+      var range = dashboardRange.offset(0, section.from + 1, dashboardRangeNumRows, section.to - section.from + 1);
+
+      if (section.type == 'formula')
+        range.setFormulasR1C1(rangeValues[i]);
+      else
+        range.setValues(rangeValues[i]);
+    }
+
+    // dashboardRange.offset(0, 5, dashboardRangeNumRows, 3).setValues(rangeValues[0]);
+    // dashboardRange.offset(0, 8, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[1]);
+    // dashboardRange.offset(0, 9, dashboardRangeNumRows, 1).setValues(rangeValues[2]);
+    // dashboardRange.offset(0, 10, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
+    // dashboardRange.offset(0, 11, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
+    // dashboardRange.offset(0, 12, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
+    // dashboardRange.offset(0, 13, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
 
     console.timeEnd('saveDashBoard');
   }
 }
 
+function test1() {
+  var db = dashBoardProxy.get();
+  //  dashBoardProxy.set(db);
+  Logger.log(db);
+}
+
 function onOpen(e) {
   SpreadsheetApp.getUi()
     .createMenu('Linguedo')
+    .addItem('Deduct selected', 'deductSelected')
+    .addSeparator()
     .addItem('Load new CSV', 'loadNewCsv')
     .addItem('Calculate new Strikes', 'calcMemriseStrikes')
     .addItem('Deduct all Strikes', 'deductAllStrikes')
@@ -187,7 +288,38 @@ function updateStrikeDate(e) {
   if (column < 6 || column > 8)
     return;
 
-  sheet.getRange(row, 13).setValue(new Date());
+  sheet.getRange(row, 15).setValue(new Date());
+}
+
+function deductSelected() {
+  var cell = spreadSheet.getSelection().getCurrentCell();
+  var row = cell.getRow();
+
+  if (row < 2)
+    return;
+
+  var dashboard = dashBoardProxy.get();
+
+  if (row > dashboard.length)
+    return;
+
+  var item = dashboard[row - 2];
+
+  if (!item.memriseStrike)
+    return;
+
+  var ui = SpreadsheetApp.getUi();
+
+  var result = ui.alert(
+    'Are you sure you want to deduct Memrise strike for ' + item.firstName + ' ' + item.lastName + '?',
+    ui.ButtonSet.YES_NO);
+
+  if (result != ui.Button.YES)
+    return;
+
+  item.memriseStrike--;
+
+  dashBoardProxy.set(dashboard);
 }
 
 function getParam(name) {
@@ -379,9 +511,12 @@ function calcMemriseStrikes() {
   var lastRun = getParam('memrise-strike-last-date');
   var today = new Date().removeTime();
 
-  if (lastRun && lastRun >= getSunday(today).addDays(-7))
-    throw new Error("It is forbidden to run strike calculation more than once a week. " +
-      "To force this action edit value of parameter 'memrise-strike-last-date' on 'params' tab");
+  if (lastRun && lastRun >= getSunday(today).addDays(-7)) {
+    console.timeEnd('calcMemriseStrikes');
+    return;
+    // throw new Error("It is forbidden to run strike calculation more than once a week. " +
+    //   "To force this action edit value of parameter 'memrise-strike-last-date' on 'params' tab");
+  }
 
   //set lastRun to Sunday
   if (!lastRun)
@@ -442,10 +577,10 @@ function getDaysOff(fromDate, toDate) {
 }
 
 function getHolidays(fromDate, toDate) {
-  console.time('getHolidays');
   if (toDate <= fromDate)
     return [];
 
+  console.time('getHolidays');
   var range = holidaysSheet.getValues();
   var result = range.map(function (i) { return i[0]; })
     .filter(function (i) { return i >= fromDate && i < toDate; })
@@ -455,10 +590,10 @@ function getHolidays(fromDate, toDate) {
 }
 
 function getVacations(fromDate, toDate) {
-  console.time('getVacations');
-
   if (toDate <= fromDate)
     return [];
+
+  console.time('getVacations');
 
   var vacationLimit = getParamInt('vacation-limit-days');
 
@@ -560,9 +695,12 @@ function deductAllStrikes() {
   var lastRunDate = getParam('strike-deduction-last-date');
   var currentDate = new Date();
 
-  if (lastRunDate && monthDiff(lastRunDate, currentDate) < 1)
-    throw new Error("It is forbidden to run strike deduction more than once a month. " +
-      "To force this action edit value of parameter 'strike-deduction-last-date' on 'params' tab");
+  if (lastRunDate && monthDiff(lastRunDate, currentDate) < 1) {
+    console.timeEnd('deductAllStrikes');
+    return;
+    // throw new Error("It is forbidden to run strike deduction more than once a month. " +
+    //   "To force this action edit value of parameter 'strike-deduction-last-date' on 'params' tab");
+  }
 
   var dashboard = dashBoardProxy.get();
 
@@ -653,8 +791,10 @@ function sendAllEmails() {
 
   var enabled = getParamInt('email-enabled');
 
-  if (!enabled)
+  if (!enabled) {
+    console.timeEnd('sendAllEmails');
     return false;
+  }
 
   var today = new Date().removeTime();
   var weekEnd = getSunday(today).addDays(-6);
