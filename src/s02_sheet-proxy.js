@@ -1,3 +1,10 @@
+function SheetProxy(name) {
+    this.sheet = spreadSheet.getSheetByName(name);
+    this.isEmpty;
+    this.dataRange;
+    this.values;
+}
+
 SheetProxy.prototype.getDataRange = function () {
     if (this.dataRange) return this.dataRange;
 

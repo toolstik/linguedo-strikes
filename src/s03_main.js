@@ -6,13 +6,6 @@ var csvSheet = new SheetProxy('points_journal');
 var holidaysSheet = new SheetProxy('global_holidays');
 var vacationsSheet = new SheetProxy('student_holidays');
 
-function SheetProxy(name) {
-  this.sheet = spreadSheet.getSheetByName(name);
-  this.isEmpty;
-  this.dataRange;
-  this.values;
-}
-
 var params = new function () {
   var paramsSheet = new SheetProxy('params');
   var valuesCache = null;
@@ -78,9 +71,10 @@ var dashBoardProxy = new function () {
           audioStrike: parseInt(values[6], 10) || 0,
           quizStrike: parseInt(values[7], 10) || 0,
           deductedStrikes: parseInt(values[9], 10) || 0,
-          vacationsTaken: parseInt(values[11], 10) || 0,
-          lastNotified: values[13],
-          lastStrikesModified: values[14]
+          deductedManually: parseInt(values[10], 10) || 0,
+          vacationsTaken: parseInt(values[12], 10) || 0,
+          lastNotified: values[14],
+          lastStrikesModified: values[15]
         };
       });
     console.timeEnd('getDashBoard');
@@ -105,11 +99,12 @@ var dashBoardProxy = new function () {
         ]);
 
         rangeValues[2].push([
-          r.deductedStrikes
+          r.deductedStrikes,
+          r.deductedManually
         ]);
 
         rangeValues[3].push([
-          '=RC[-2]+RC[-1]'
+          '=RC[-3]+RC[-2]+RC[-1]'
         ]);
 
         rangeValues[4].push([
@@ -130,11 +125,11 @@ var dashBoardProxy = new function () {
     var dashboardRangeNumRows = dashboardRange.getNumRows();
     dashboardRange.offset(0, 5, dashboardRangeNumRows, 3).setValues(rangeValues[0]);
     dashboardRange.offset(0, 8, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[1]);
-    dashboardRange.offset(0, 9, dashboardRangeNumRows, 1).setValues(rangeValues[2]);
-    dashboardRange.offset(0, 10, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
-    dashboardRange.offset(0, 11, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
-    dashboardRange.offset(0, 12, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
-    dashboardRange.offset(0, 13, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
+    dashboardRange.offset(0, 9, dashboardRangeNumRows, 2).setValues(rangeValues[2]);
+    dashboardRange.offset(0, 11, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
+    dashboardRange.offset(0, 12, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
+    dashboardRange.offset(0, 13, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
+    dashboardRange.offset(0, 14, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
 
     console.timeEnd('saveDashBoard');
   }
@@ -143,6 +138,8 @@ var dashBoardProxy = new function () {
 function onOpen(e) {
   SpreadsheetApp.getUi()
     .createMenu('Linguedo')
+    .addItem('Deduct selected', 'deductSelected')
+    .addSeparator()
     .addItem('Load new CSV', 'loadNewCsv')
     .addItem('Calculate new Strikes', 'calcMemriseStrikes')
     .addItem('Deduct all Strikes', 'deductAllStrikes')
@@ -187,7 +184,39 @@ function updateStrikeDate(e) {
   if (column < 6 || column > 8)
     return;
 
-  sheet.getRange(row, 13).setValue(new Date());
+  sheet.getRange(row, 16).setValue(new Date());
+}
+
+function deductSelected() {
+  var cell = spreadSheet.getSelection().getCurrentCell();
+  var row = cell.getRow();
+
+  if (row < 2)
+    return;
+
+  var dashboard = dashBoardProxy.get();
+
+  if (row > dashboard.length)
+    return;
+
+  var item = dashboard[row - 2];
+
+  if (!item.memriseStrike)
+    return;
+
+  var ui = SpreadsheetApp.getUi();
+
+  var result = ui.alert(
+    'Are you sure you want to deduct Memrise strike for ' + item.firstName + ' ' + item.lastName + '?',
+    ui.ButtonSet.YES_NO);
+
+  if (result != ui.Button.YES)
+    return;
+
+  item.memriseStrike--;
+  item.deductedManually++;
+
+  dashBoardProxy.set(dashboard);
 }
 
 function getParam(name) {
