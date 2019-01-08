@@ -6,13 +6,6 @@ var csvSheet = new SheetProxy('points_journal');
 var holidaysSheet = new SheetProxy('global_holidays');
 var vacationsSheet = new SheetProxy('student_holidays');
 
-function SheetProxy(name) {
-  this.sheet = spreadSheet.getSheetByName(name);
-  this.isEmpty;
-  this.dataRange;
-  this.values;
-}
-
 var params = new function () {
   var paramsSheet = new SheetProxy('params');
   var valuesCache = null;
@@ -288,7 +281,7 @@ function updateStrikeDate(e) {
   if (column < 6 || column > 8)
     return;
 
-  sheet.getRange(row, 15).setValue(new Date());
+  sheet.getRange(row, 16).setValue(new Date());
 }
 
 function deductSelected() {
@@ -318,6 +311,7 @@ function deductSelected() {
     return;
 
   item.memriseStrike--;
+  item.deductedManually++;
 
   dashBoardProxy.set(dashboard);
 }
