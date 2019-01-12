@@ -1,4 +1,3 @@
-**/**
-!*.js
-!appsscript.json
-include.js
+README.md
+node_modules/**
+package.json
