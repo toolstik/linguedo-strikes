@@ -1,0 +1,2 @@
+cd dist
+clasp push

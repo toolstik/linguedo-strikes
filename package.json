@@ -2,7 +2,7 @@
   "main": "src/index.js",
   "scripts": {
     "build": "sh build.sh",
-    "upload": "clasp push",
+    "upload": "sh upload.sh",
     "deploy": "npm run build && npm run upload"
   },
   "dependencies": {},
