@@ -72,9 +72,11 @@ var dashBoardProxy = new function () {
           quizStrike: parseInt(values[7], 10) || 0,
           deductedStrikes: parseInt(values[9], 10) || 0,
           deductedManually: parseInt(values[10], 10) || 0,
-          vacationsTaken: parseInt(values[12], 10) || 0,
-          lastNotified: values[14],
-          lastStrikesModified: values[15]
+          startDate: values[11] || null,
+          endDate: values[12] || null,
+          vacationsTaken: parseInt(values[14], 10) || 0,
+          lastNotified: values[16],
+          lastStrikesModified: values[17]
         };
       });
     console.timeEnd('getDashBoard');
@@ -100,11 +102,13 @@ var dashBoardProxy = new function () {
 
         rangeValues[2].push([
           r.deductedStrikes,
-          r.deductedManually
+          r.deductedManually,
+          r.startDate,
+          r.endDate
         ]);
 
         rangeValues[3].push([
-          '=RC[-3]+RC[-2]+RC[-1]'
+          '=RC[-5]+RC[-4]+RC[-3]'
         ]);
 
         rangeValues[4].push([
@@ -125,11 +129,11 @@ var dashBoardProxy = new function () {
     var dashboardRangeNumRows = dashboardRange.getNumRows();
     dashboardRange.offset(0, 5, dashboardRangeNumRows, 3).setValues(rangeValues[0]);
     dashboardRange.offset(0, 8, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[1]);
-    dashboardRange.offset(0, 9, dashboardRangeNumRows, 2).setValues(rangeValues[2]);
-    dashboardRange.offset(0, 11, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
-    dashboardRange.offset(0, 12, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
-    dashboardRange.offset(0, 13, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
-    dashboardRange.offset(0, 14, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
+    dashboardRange.offset(0, 9, dashboardRangeNumRows, 4).setValues(rangeValues[2]);
+    dashboardRange.offset(0, 13, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[3]);
+    dashboardRange.offset(0, 14, dashboardRangeNumRows, 1).setValues(rangeValues[4]);
+    dashboardRange.offset(0, 15, dashboardRangeNumRows, 1).setFormulasR1C1(rangeValues[5]);
+    dashboardRange.offset(0, 16, dashboardRangeNumRows, 2).setValues(rangeValues[6]);
 
     console.timeEnd('saveDashBoard');
   }
@@ -184,7 +188,7 @@ function updateStrikeDate(e) {
   if (column < 6 || column > 8)
     return;
 
-  sheet.getRange(row, 16).setValue(new Date());
+  sheet.getRange(row, 18).setValue(new Date());
 }
 
 function deductSelected() {
@@ -266,7 +270,10 @@ function loadNewCsv() {
           currentPoints = snapshot[username] ? totalPoints - snapshot[username].latest : null;
         }
 
-        var failure = (currentPoints != null && currentPoints >= 0 && (currentPoints < pointsThreshold)) ? 1 : 0;
+        var failure = currentPoints != null &&
+          currentPoints >= 0 && (currentPoints < pointsThreshold)
+          ? 1
+          : 0;
 
         return [date, username, totalPoints, uid, currentPoints, failure];
       });
@@ -339,7 +346,9 @@ function getInitPointTotals() {
         res[next.username] = {
           date: null,
           latest: null,
-          failures: 0
+          failures: 0,
+          startDate: next.startDate,
+          endDate: next.endDate
         };
       }
       return res;
@@ -371,14 +380,17 @@ function mergePointTotals(current, values) {
         return state;
 
       var totalPoints = parseInt(row[2], 10);
-      var failure = parseInt(row[5], 10);
+
+      var dateFilter =
+        ((userSnapshot.startDate || date) <= date && (userSnapshot.endDate || date) >= date);
+      var failure = parseInt(row[5], 10) && dateFilter ? 1 : 0;
 
       if (userSnapshot.date == null || date > userSnapshot.date) {
         userSnapshot.latest = totalPoints;
         userSnapshot.date = date;
       }
 
-      userSnapshot.failures = userSnapshot.failures + (failure > 0 ? 1 : 0);
+      userSnapshot.failures = userSnapshot.failures + failure;
 
       return state;
     }, current);
@@ -443,9 +455,8 @@ function calcMemriseStrikes() {
         var strikeCount = points[user.username].failures - daysOffCount - extraDaysOffCount;
 
         if (strikeCount > 0) {
-          var strike = dashboard.find(function (r) { return r.username == user.username; });
-          strike.memriseStrike += strikeCount;
-          strike.lastStrikesModified = new Date();
+          user.memriseStrike += strikeCount;
+          user.lastStrikesModified = new Date();
         }
       }
     }
