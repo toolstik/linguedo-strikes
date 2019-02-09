@@ -72,8 +72,8 @@ var dashBoardProxy = new function () {
           quizStrike: parseInt(values[7], 10) || 0,
           deductedStrikes: parseInt(values[9], 10) || 0,
           deductedManually: parseInt(values[10], 10) || 0,
-          startDate: values[11] || null,
-          endDate: values[12] || null,
+          startDate: values[11] ? values[11].removeTime() : null,
+          endDate: values[12] ? values[12].removeTime() : null,
           vacationsTaken: parseInt(values[14], 10) || 0,
           lastNotified: values[16],
           lastStrikesModified: values[17]
@@ -383,7 +383,9 @@ function mergePointTotals(current, values) {
 
       var dateFilter =
         ((userSnapshot.startDate || date) <= date && (userSnapshot.endDate || date) >= date);
-      var failure = parseInt(row[5], 10) && dateFilter ? 1 : 0;
+      var failure = dateFilter ? parseInt(row[5], 10) : 0;
+      if (username == 'damazzucco')
+        Logger.log({ date: date, failure: failure });
 
       if (userSnapshot.date == null || date > userSnapshot.date) {
         userSnapshot.latest = totalPoints;
@@ -417,23 +419,25 @@ function calcMemriseStrikes() {
   console.time('calcMemriseStrikes');
 
   var extraDaysOffCount = getParamInt('extra-days-off-per-week') || 0;
-  var lastRun = getParam('memrise-strike-last-date');
-  var today = new Date().removeTime();
+  var lastSundayProcessed = getParam('memrise-strike-last-date');
+  var lastSunday = getSunday(new Date().removeTime()).addDays(-7);
 
-  if (lastRun && lastRun >= getSunday(today).addDays(-7))
-    throw new Error("It is forbidden to run strike calculation more than once a week. " +
-      "To force this action edit value of parameter 'memrise-strike-last-date' on 'params' tab");
+  // if (lastRun && lastRun >= thisSunday.addDays(-7))
+  //   throw new Error("It is forbidden to run strike calculation more than once a week. " +
+  //     "To force this action edit value of parameter 'memrise-strike-last-date' on 'params' tab");
 
   //set lastRun to Sunday
-  if (!lastRun)
-    lastRun = getSunday(today).addDays(-14);
+  if (!lastSundayProcessed)
+    lastSundayProcessed = lastSunday.addDays(-7);
   else
-    lastRun = getSunday(lastRun);
+    lastSundayProcessed = getSunday(lastSundayProcessed);
 
   var dashboard = dashBoardProxy.get();
 
-  while (lastRun < today) {
-    var weekStart = lastRun.addDays(1);
+  var processingWeekSunday = lastSundayProcessed.addDays(7);
+
+  while (processingWeekSunday <= lastSunday) {
+    var weekStart = processingWeekSunday.addDays(-6);
     var weekEnd = weekStart.addDays(7);
 
     var daysOff = getDaysOff(weekStart, weekEnd);
@@ -462,9 +466,9 @@ function calcMemriseStrikes() {
     }
 
     dashBoardProxy.set(dashboard);
-    setParam('memrise-strike-last-date', lastRun);
+    setParam('memrise-strike-last-date', processingWeekSunday);
 
-    lastRun = lastRun.addDays(7);
+    processingWeekSunday = processingWeekSunday.addDays(7);
   }
 
   console.timeEnd('calcMemriseStrikes');
