@@ -720,8 +720,8 @@ function sendAllEmails() {
     user['daysOffUsedLastWeek'] = weekVacations[user.email] ? weekVacations[user.email].length : 0;
     user['daysOffLeft'] = vacationLimit - user.vacationsTaken;
 
-    var strikesModified = !user.lastStrikesModified ||
-      (user.lastStrikesModified >= weekStart && user.lastStrikesModified < weekEnd);
+    var strikesModified = user.lastStrikesModified &&
+      (!user.lastNotified || user.lastNotified < user.lastStrikesModified);
     var vacationsAquire = user.daysOffUsedLastWeek > 0;
 
     if (!strikesModified && !vacationsAquire) {
