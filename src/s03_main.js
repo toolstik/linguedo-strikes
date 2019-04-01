@@ -384,8 +384,6 @@ function mergePointTotals(current, values) {
       var dateFilter =
         ((userSnapshot.startDate || date) <= date && (userSnapshot.endDate || date) >= date);
       var failure = dateFilter ? parseInt(row[5], 10) : 0;
-      if (username == 'damazzucco')
-        Logger.log({ date: date, failure: failure });
 
       if (userSnapshot.date == null || date > userSnapshot.date) {
         userSnapshot.latest = totalPoints;
@@ -720,13 +718,13 @@ function sendAllEmails() {
     user['daysOffUsedLastWeek'] = weekVacations[user.email] ? weekVacations[user.email].length : 0;
     user['daysOffLeft'] = vacationLimit - user.vacationsTaken;
 
-    var strikesModified = user.lastStrikesModified &&
-      (!user.lastNotified || user.lastNotified < user.lastStrikesModified);
-    var vacationsAquire = user.daysOffUsedLastWeek > 0;
+    // var strikesModified = user.lastStrikesModified &&
+    //   (!user.lastNotified || user.lastNotified < user.lastStrikesModified);
+    // var vacationsAquire = user.daysOffUsedLastWeek > 0;
 
-    if (!strikesModified && !vacationsAquire) {
-      continue;
-    }
+    // if (!strikesModified && !vacationsAquire) {
+    //   continue;
+    // }
 
     var sent = sendEmail(template, user);
     if (!sent) break;
