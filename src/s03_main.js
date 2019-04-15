@@ -251,7 +251,7 @@ function loadNewCsv() {
   // move to local func, collect files into array and save at once
   function readCsv(date, file) {
     console.time('readCsv');
-
+    console.log('File ' + file.getName() + ' for date ' + date.toString() + ' detected');
     var body = file.getBlob().getDataAsString();
     var data = Utilities.parseCsv(body, ',').slice(1);
 
@@ -281,6 +281,7 @@ function loadNewCsv() {
     snapshot = mergePointTotals(snapshot, result);
     newValues = newValues.concat(result);
 
+    console.log('File ' + file.getName() + ' for date ' + date.toString() + ' loaded successfully');
     console.timeEnd('readCsv');
   }
 
